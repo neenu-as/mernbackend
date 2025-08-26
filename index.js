@@ -12,6 +12,8 @@ const path = require("path");
 const User = require("./models/User");
 const Menu = require("./models/Menu");
 const Order = require("./models/Order");
+const cloudinary = require("./cloudinary"); 
+
 
 
 
@@ -101,15 +103,44 @@ app.post("/api/login", async (req, res) => {
 });
 
 // ✅ Menu Routes
+// app.post("/menu", upload.single("image"), async (req, res) => {
+//   try {
+//     const newItem = new Menu({
+//       name: req.body.name,
+//       description: req.body.description,
+//       price: Number(req.body.price),
+//       category: req.body.category,
+//       image: req.file ? `/uploads/${req.file.filename}` : "",
+//     });
+//     await newItem.save();
+//     res.json(newItem);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+
+// ✅ Add Menu Item with Cloudinary Upload
 app.post("/menu", upload.single("image"), async (req, res) => {
   try {
+    let imageUrl = "";
+
+    if (req.file) {
+      // Upload to Cloudinary
+      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+        folder: "cafeapp/menu"
+      });
+      imageUrl = uploadResult.secure_url;  // ✅ Cloudinary direct link
+    }
+
     const newItem = new Menu({
       name: req.body.name,
       description: req.body.description,
       price: Number(req.body.price),
       category: req.body.category,
-      image: req.file ? `/uploads/${req.file.filename}` : "",
+      image: imageUrl,
     });
+
     await newItem.save();
     res.json(newItem);
   } catch (err) {
@@ -131,6 +162,26 @@ app.get("/menu/:id", async (req, res) => {
   }
 });
 
+// app.put("/menu/:id", upload.single("image"), async (req, res) => {
+//   try {
+//     let updateData = {
+//       name: req.body.name,
+//       description: req.body.description,
+//       price: Number(req.body.price),
+//       category: req.body.category,
+//     };
+//     if (req.file) {
+//       updateData.image = `/uploads/${req.file.filename}`;
+//     }
+//     const updatedItem = await Menu.findByIdAndUpdate(req.params.id, updateData, { new: true });
+//     if (!updatedItem) return res.status(404).json({ message: "Menu item not found" });
+//     res.json(updatedItem);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+
+// ✅ Update Menu Item with Cloudinary Upload
 app.put("/menu/:id", upload.single("image"), async (req, res) => {
   try {
     let updateData = {
@@ -139,16 +190,23 @@ app.put("/menu/:id", upload.single("image"), async (req, res) => {
       price: Number(req.body.price),
       category: req.body.category,
     };
+
     if (req.file) {
-      updateData.image = `/uploads/${req.file.filename}`;
+      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
+        folder: "cafeapp/menu"
+      });
+      updateData.image = uploadResult.secure_url;
     }
+
     const updatedItem = await Menu.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updatedItem) return res.status(404).json({ message: "Menu item not found" });
+
     res.json(updatedItem);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.delete("/menu/:id", async (req, res) => {
   try {
