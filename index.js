@@ -9,19 +9,24 @@ const path = require("path");
 const User = require("./models/User");
 const Menu = require("./models/Menu");
 const Order = require("./models/Order");
-const cloudinary = require("./cloudinary");
+
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ❌ Remove uploads folder (not needed on Render)
-// app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static("uploads"));
 
-// ✅ Multer memory storage (for Cloudinary direct upload)
-const storage = multer.memoryStorage();
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+
 const upload = multer({ storage });
-
 
 // Connect to MongoDB
 // Connect to MongoDB Atlas
@@ -91,59 +96,25 @@ app.post("/api/login", async (req, res) => {
 });
 
 // ✅ Menu Routes
-// app.post("/menu", upload.single("image"), async (req, res) => {
-//   try {
-//     const newItem = new Menu({
-//       name: req.body.name,
-//       description: req.body.description,
-//       price: Number(req.body.price),
-//       category: req.body.category,
-//       image: req.file ? `/uploads/${req.file.filename}` : "",
-//     });
-//     await newItem.save();
-//     res.json(newItem);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-
-
-// ✅ Add Menu Item with Cloudinary Upload
 app.post("/menu", upload.single("image"), async (req, res) => {
   try {
-    let imageUrl = "";
-
-    if (req.file) {
-      // Upload buffer to Cloudinary
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "cafeapp/menu" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(req.file.buffer);
-      });
-
-      imageUrl = uploadResult.secure_url;
-    }
-
     const newItem = new Menu({
       name: req.body.name,
       description: req.body.description,
       price: Number(req.body.price),
       category: req.body.category,
-      image: imageUrl,
+      image: req.file ? `/uploads/${req.file.filename}` : "",
     });
-
     await newItem.save();
     res.json(newItem);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+
+
 
 app.get("/menu", async (req, res) => {
   const items = await Menu.find();
@@ -159,27 +130,7 @@ app.get("/menu/:id", async (req, res) => {
   }
 });
 
-// app.put("/menu/:id", upload.single("image"), async (req, res) => {
-//   try {
-//     let updateData = {
-//       name: req.body.name,
-//       description: req.body.description,
-//       price: Number(req.body.price),
-//       category: req.body.category,
-//     };
-//     if (req.file) {
-//       updateData.image = `/uploads/${req.file.filename}`;
-//     }
-//     const updatedItem = await Menu.findByIdAndUpdate(req.params.id, updateData, { new: true });
-//     if (!updatedItem) return res.status(404).json({ message: "Menu item not found" });
-//     res.json(updatedItem);
-//   } catch (err) {
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-
-// ✅ Update Menu Item with Cloudinary Upload
+//edit menu
 app.put("/menu/:id", upload.single("image"), async (req, res) => {
   try {
     let updateData = {
@@ -188,31 +139,19 @@ app.put("/menu/:id", upload.single("image"), async (req, res) => {
       price: Number(req.body.price),
       category: req.body.category,
     };
-
     if (req.file) {
-      // Upload buffer to Cloudinary
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "cafeapp/menu" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(req.file.buffer);
-      });
-
-      updateData.image = uploadResult.secure_url;
+      updateData.image = `/uploads/${req.file.filename}`;
     }
-
     const updatedItem = await Menu.findByIdAndUpdate(req.params.id, updateData, { new: true });
     if (!updatedItem) return res.status(404).json({ message: "Menu item not found" });
-
     res.json(updatedItem);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+
+
 
 
 app.delete("/menu/:id", async (req, res) => {
