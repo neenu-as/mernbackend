@@ -7,7 +7,8 @@ const MenuSchema = new mongoose.Schema({
   price: Number,
   category: String,
   image: String, // store filename / path
-});
+
+},{ collection: "menu" });
 
 // Export properly
 module.exports = mongoose.model("Menu", MenuSchema);
