@@ -1,6 +1,3 @@
-
-
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -12,28 +9,19 @@ const path = require("path");
 const User = require("./models/User");
 const Menu = require("./models/Menu");
 const Order = require("./models/Order");
-const cloudinary = require("./cloudinary"); 
-
-
-
+const cloudinary = require("./cloudinary");
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// make uploads folder public
-app.use("/uploads", express.static("uploads"));
+// ❌ Remove uploads folder (not needed on Render)
+// app.use("/uploads", express.static("uploads"));
 
-// Multer storage config
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  }
-});
-const upload = multer({ storage: storage });
+// ✅ Multer memory storage (for Cloudinary direct upload)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
 
 // Connect to MongoDB
 // Connect to MongoDB Atlas
@@ -120,17 +108,26 @@ app.post("/api/login", async (req, res) => {
 // });
 
 
+
 // ✅ Add Menu Item with Cloudinary Upload
 app.post("/menu", upload.single("image"), async (req, res) => {
   try {
     let imageUrl = "";
 
     if (req.file) {
-      // Upload to Cloudinary
-      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-        folder: "cafeapp/menu"
+      // Upload buffer to Cloudinary
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "cafeapp/menu" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
       });
-      imageUrl = uploadResult.secure_url;  // ✅ Cloudinary direct link
+
+      imageUrl = uploadResult.secure_url;
     }
 
     const newItem = new Menu({
@@ -181,6 +178,7 @@ app.get("/menu/:id", async (req, res) => {
 //   }
 // });
 
+
 // ✅ Update Menu Item with Cloudinary Upload
 app.put("/menu/:id", upload.single("image"), async (req, res) => {
   try {
@@ -192,9 +190,18 @@ app.put("/menu/:id", upload.single("image"), async (req, res) => {
     };
 
     if (req.file) {
-      const uploadResult = await cloudinary.uploader.upload(req.file.path, {
-        folder: "cafeapp/menu"
+      // Upload buffer to Cloudinary
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "cafeapp/menu" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
       });
+
       updateData.image = uploadResult.secure_url;
     }
 
